@@ -244,6 +244,20 @@ urlencode() {
   printf '%s' "$output"
 }
 
+print_red_uri_box() {
+  uri="$1"
+  printf '\033[31m'
+  printf '\n'
+  printf '================================================================\n'
+  printf ' NekoBox 可直接导入的 AnyTLS 节点信息：\n'
+  printf '\n'
+  printf ' %s\n' "$uri"
+  printf '\n'
+  printf ' 请复制上面这一整行，以 anytls:// 开头。\n'
+  printf '================================================================\n'
+  printf '\033[0m'
+}
+
 print_result() {
   IP="$(curl -fsS --max-time 5 https://ip.sb 2>/dev/null || curl -fsS --max-time 5 https://api.ipify.org 2>/dev/null || echo '你的服务器IP或域名')"
   EXTERNAL_PORT="${EXTERNAL_PORT:-$PORT}"
@@ -259,20 +273,22 @@ print_result() {
 
 客户端填写：
   地址：${IP}
-  端口：请填写 NAT 面板上的【外部 TCP 端口】
+  端口：${EXTERNAL_PORT}
   密码：${PASSWORD}
   协议：AnyTLS
 
-NekoBox / sing-box 类客户端分享链接：
-  ${NEKOBOX_URI}
+EOF
+
+  print_red_uri_box "$NEKOBOX_URI"
+
+  cat <<EOF
 
 重要提醒：
   1. AnyTLS-Go 当前服务端监听的是 TCP，不是 UDP。
   2. NAT 小鸡面板里必须添加 TCP 转发规则。
-     例如：TCP 外部端口 ${PORT} -> 内部端口 ${PORT}
+     例如：TCP 外部端口 ${EXTERNAL_PORT} -> 内部端口 ${PORT}
   3. 如果面板给的是“外部端口 31922 -> 内部端口 ${PORT}”，
-     客户端端口要填 31922，而不是 ${PORT}。
-     这种情况下可这样安装，让输出的分享链接直接使用外部端口：
+     请这样运行，让节点链接显示正确的外部端口：
      EXTERNAL_PORT=31922 PORT=${PORT} PASSWORD='你的密码' bash <(curl -fsSL 你的脚本raw地址)
   4. 如果你的客户端不接受 insecure=1，请手动在客户端里开启“允许不安全 / 跳过证书验证”。
   5. 这类超小内存机器不建议反复 apt upgrade。
