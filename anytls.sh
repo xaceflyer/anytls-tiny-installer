@@ -224,8 +224,31 @@ check_status() {
   fi
 }
 
+urlencode() {
+  # Percent-encode a string for URL userinfo/query usage.
+  # Uses only POSIX shell + od; no python/jq dependency.
+  old_lc_all="${LC_ALL:-}"
+  LC_ALL=C
+  input="$1"
+  output=""
+  i=1
+  while [ "$i" -le "${#input}" ]; do
+    c="$(printf '%s' "$input" | cut -c "$i")"
+    case "$c" in
+      [a-zA-Z0-9.~_-]) output="${output}${c}" ;;
+      *) hex="$(printf '%s' "$c" | od -An -tx1 | tr -d ' \n' | tr 'abcdef' 'ABCDEF')"; output="${output}%${hex}" ;;
+    esac
+    i=$((i + 1))
+  done
+  LC_ALL="$old_lc_all"
+  printf '%s' "$output"
+}
+
 print_result() {
   IP="$(curl -fsS --max-time 5 https://ip.sb 2>/dev/null || curl -fsS --max-time 5 https://api.ipify.org 2>/dev/null || echo '你的服务器IP或域名')"
+  EXTERNAL_PORT="${EXTERNAL_PORT:-$PORT}"
+  ENCODED_PASSWORD="$(urlencode "$PASSWORD")"
+  NEKOBOX_URI="anytls://${ENCODED_PASSWORD}@${IP}:${EXTERNAL_PORT}/?insecure=1"
 
   cat <<EOF
 
@@ -240,13 +263,19 @@ print_result() {
   密码：${PASSWORD}
   协议：AnyTLS
 
+NekoBox / sing-box 类客户端分享链接：
+  ${NEKOBOX_URI}
+
 重要提醒：
   1. AnyTLS-Go 当前服务端监听的是 TCP，不是 UDP。
   2. NAT 小鸡面板里必须添加 TCP 转发规则。
      例如：TCP 外部端口 ${PORT} -> 内部端口 ${PORT}
   3. 如果面板给的是“外部端口 31922 -> 内部端口 ${PORT}”，
      客户端端口要填 31922，而不是 ${PORT}。
-  4. 这类超小内存机器不建议反复 apt upgrade。
+     这种情况下可这样安装，让输出的分享链接直接使用外部端口：
+     EXTERNAL_PORT=31922 PORT=${PORT} PASSWORD='你的密码' bash <(curl -fsSL 你的脚本raw地址)
+  4. 如果你的客户端不接受 insecure=1，请手动在客户端里开启“允许不安全 / 跳过证书验证”。
+  5. 这类超小内存机器不建议反复 apt upgrade。
 
 常用命令：
   查看状态：systemctl status anytls --no-pager
